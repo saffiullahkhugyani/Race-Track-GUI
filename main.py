@@ -5,7 +5,7 @@ import serial
 import json
 import threading
 import tkinter
-from tkinter import ttk, messagebox, font
+from tkinter import  messagebox, font
 import customtkinter as ctk
 
 
