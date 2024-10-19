@@ -5,7 +5,7 @@ import serial
 import json
 import threading
 import tkinter
-from tkinter import  messagebox, font
+from tkinter import messagebox, font
 import customtkinter as ctk
 
 
@@ -282,7 +282,6 @@ class MainFrame(ctk.CTkFrame):
                 #     time.sleep(0.1)
 
 
-
 class PlayerInfo(ctk.CTkFrame):
     def __init__(self, parent, color, data, player_wid_length):
         super().__init__(parent)
@@ -292,14 +291,13 @@ class PlayerInfo(ctk.CTkFrame):
 
         # player data
         player_number = data.get("player_number", "")
-        reaction_time = data.get("reaction_time", "")
-        race_time = data.get("race_time", "")
-        total_race_time = data.get("total_race_time", "")
-        out = data.get("out", "")
-        status = data.get("status", "")
-        player_position = data.get("pos", "")
+        position = data.get("position", "")
+        response_time = data.get("response_time", "")
+        lap_time = data.get("lap_time", "")
+        finished = data.get("finished", "")
+        eliminated = data.get("eliminated", "")
 
-        player_status = "Position {}".format(player_position) if not out else "OUT"
+        player_status = "Position {}".format(position) if not eliminated else "OUT"
 
         color = ['red', 'green', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
 
@@ -347,7 +345,7 @@ class PlayerInfo(ctk.CTkFrame):
                                                      borderwidth=1, relief='solid')
         self.playerResponseTimeLabel = tkinter.Label(self.playerResponseTimeFrame, text="Response time:",
                                                      background='gray70')
-        self.playerResponseTime = tkinter.Label(self.playerResponseTimeFrame, text=reaction_time,
+        self.playerResponseTime = tkinter.Label(self.playerResponseTimeFrame, text=response_time,
                                                 background='gray70')
 
         self.playerResponseTimeFrame.pack(padx=5, pady=(5, 0), fill='both')
@@ -358,7 +356,7 @@ class PlayerInfo(ctk.CTkFrame):
         self.playerLapTimeFrame = tkinter.Frame(self.dataFrame, background="gray70",
                                                 borderwidth=1, relief='solid')
         self.playerLapTimeLabel = tkinter.Label(self.playerLapTimeFrame, text="Lap time: ", background='gray70')
-        self.playerLapTime = tkinter.Label(self.playerLapTimeFrame, text=total_race_time, background='gray70')
+        self.playerLapTime = tkinter.Label(self.playerLapTimeFrame, text=lap_time, background='gray70')
 
         self.playerLapTimeFrame.pack(padx=5, pady=(5, 5), fill='both')
         self.playerLapTimeLabel.pack(padx=2, pady=(2, 0), fill='x')
