@@ -227,6 +227,7 @@ class MainFrame(ctk.CTkFrame):
                     self.label.pack(expand=False, fill='both')
                     self.label.configure(text=status,
                                          font=ctk.CTkFont(size=100, weight=font.BOLD, family='Helvetica'))
+
     def len(self):
         # print function for development purpose
         return len(self.playersDataList)
@@ -251,19 +252,11 @@ class MainFrame(ctk.CTkFrame):
         """ print function for testing in development """
         # print(f" display function: {data}")
 
-        player_number = data.get("player_number", "")
-        reaction_time = data.get("reaction_time", "")
-        race_time = data.get("race_time", "")
-        total_race_time = data.get("total_race_time", "")
-        out = data.get("out", "")
-        status = data.get("status", "")
-        position = data.get("pos", "")
-
-        if isinstance(data, dict) and all(key in data for key in ("status",)):
-            pass
+        if isinstance(data, dict) and all(key in data for key in ("player_info",)):
+            playerData = data.get("player_info")
+            self.playersDataList.append(playerData)
         else:
-            # self.playerWidget.append(PlayerInfo(self, 'red', data, self.len()))
-            self.playersDataList.append(data)
+            pass
 
         if self.len() > self.playersLength:
             self.playersLength = self.len()
@@ -291,13 +284,14 @@ class PlayerInfo(ctk.CTkFrame):
 
         # player data
         player_number = data.get("player_number", "")
-        position = data.get("position", "")
-        response_time = data.get("response_time", "")
+        player_position = data.get("position", "")
+        reaction_time = data.get("reaction_time", "")
         lap_time = data.get("lap_time", "")
-        finished = data.get("finished", "")
         eliminated = data.get("eliminated", "")
+        race_time = data.get("race_time", "")
+        status = data.get("status", "")
 
-        player_status = "Position {}".format(position) if not eliminated else "OUT"
+        player_status = "Position {}".format(player_position) if not eliminated else "OUT"
 
         color = ['red', 'green', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
 
@@ -345,7 +339,7 @@ class PlayerInfo(ctk.CTkFrame):
                                                      borderwidth=1, relief='solid')
         self.playerResponseTimeLabel = tkinter.Label(self.playerResponseTimeFrame, text="Response time:",
                                                      background='gray70')
-        self.playerResponseTime = tkinter.Label(self.playerResponseTimeFrame, text=response_time,
+        self.playerResponseTime = tkinter.Label(self.playerResponseTimeFrame, text=reaction_time,
                                                 background='gray70')
 
         self.playerResponseTimeFrame.pack(padx=5, pady=(5, 0), fill='both')
