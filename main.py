@@ -54,10 +54,12 @@ class SerialCommunication:
                     if isinstance(received_data, dict):
 
                         # To display players data
-                        self.update_callback(received_data)
+                        if "player_info" in received_data:
+                            self.update_callback(received_data)
 
                         # updating the label based on the game
-                        self.status_update_label_callback(received_data)
+                        if "status" in received_data:
+                            self.status_update_label_callback(received_data)
                         # self.label_update_callback(received_data)
                         # print(received_data)
                     else:
@@ -182,8 +184,6 @@ class SideBar(ctk.CTkFrame):
 class MainFrame(ctk.CTkFrame):
     playerWidget = []
     playersDataList = []
-    playersLength = -1
-    checkAllData = False
     dynamic_label = None
 
     def __init__(self, parent):
@@ -204,7 +204,7 @@ class MainFrame(ctk.CTkFrame):
     def status_update_label(self, data):
 
         """ print function for testing in development """
-        # print(f"status update function: {data}")
+        print(f"status update function: {data}")
 
         status = data.get("status", "")
 
@@ -240,8 +240,6 @@ class MainFrame(ctk.CTkFrame):
                 print(f"list is not empty: {len(self.playerWidget)}")
                 self.playerWidget = []
                 self.playersDataList = []
-                self.checkAllData = False
-                self.playersLength = -1
             else:
                 print(f"Player widget list is empty: {len(self.playerWidget)}")
             self.label.pack(expand=True, fill='both')
@@ -250,29 +248,29 @@ class MainFrame(ctk.CTkFrame):
     def display(self, data):
 
         """ print function for testing in development """
-        # print(f" display function: {data}")
+        print(f" display function: {data}")
 
         if isinstance(data, dict) and all(key in data for key in ("player_info",)):
             playerData = data.get("player_info")
             self.playersDataList.append(playerData)
+            self.playerWidget.append(PlayerInfo(self, 'red', playerData, self.len()))
+            time.sleep(0.1)
         else:
             pass
 
-        if self.len() > self.playersLength:
-            self.playersLength = self.len()
-        else:
-            self.checkAllData = True
+        # if self.len() > self.playersLength:
+        #     self.playersLength = self.len()
+        # else:
+        #     self.checkAllData = True
 
         # print(self.playersLength)
 
-        if self.checkAllData:
-            for index, child in enumerate(self.playersDataList):
-                self.playerWidget.append(PlayerInfo(self, 'red', child, self.len()))
-                time.sleep(0.1)
-
-                # if index == 2:
-                #     self.playerWidget.append(PlayerInfo(self, 'red', child, self.len()))
-                #     time.sleep(0.1)
+        # if self.checkAllData:
+        #     for index, child in enumerate(self.playersDataList):
+        #         self.playerWidget.append(PlayerInfo(self, 'red', child, self.len()))
+        #         time.sleep(0.1)
+        #
+        # print(f"Player wid length: {len(self.playerWidget)}")
 
 
 class PlayerInfo(ctk.CTkFrame):
@@ -291,7 +289,11 @@ class PlayerInfo(ctk.CTkFrame):
         race_time = data.get("race_time", "")
         status = data.get("status", "")
 
-        player_status = "Position {}".format(player_position) if not eliminated else "OUT"
+        player_status = (
+            "DNF" if player_position == 0 and not eliminated else
+            "Position {}".format(player_position) if not eliminated else
+            "OUT"
+        )
 
         color = ['red', 'green', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
 
