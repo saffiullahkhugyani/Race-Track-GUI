@@ -1,6 +1,6 @@
 class PlayerModel:
     def __init__(self, player_id,player_number, position, race_time, reaction_time, lap_time,
-                 eliminated, race_type=None, race_date=None):
+                 eliminated, race_type=None, race_date=None, player_city=None, player_country=None):
         self.player_id = player_id
         self.player_number = player_number
         self.position = position
@@ -10,6 +10,8 @@ class PlayerModel:
         self.eliminated = eliminated
         self.race_type = race_type
         self.race_date = race_date
+        self.player_city = player_city
+        self.player_country = player_country
 
     def __repr__(self):
         return (f"PlayerInfo(player_id={self.player_id}, player_number={self.player_number}, position={self.position}, "

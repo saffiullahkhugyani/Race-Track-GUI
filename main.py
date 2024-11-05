@@ -11,6 +11,7 @@ import customtkinter as ctk
 from remote_data import RemoteData
 from player_model import PlayerModel
 from local_data import LocalData
+from local_data_excel import LocalDataExcel
 
 
 class SerialCommunication:
@@ -139,7 +140,7 @@ class SideBar(ctk.CTkFrame):
         super().__init__(parent)
 
         # Dictionary to store player IDs
-        self.player_id_map = {}
+        self.player_id_info = {}
 
         # instance of Main frame to access the class methods
         self.is_success = None
@@ -209,12 +210,12 @@ class SideBar(ctk.CTkFrame):
         #         self.player_id_map[i] = player_id
 
         player_id_dialog = PlayerIDDialog(self, num_players)
-        player_id_map = player_id_dialog.get_player_ids()
+        player_id_info = player_id_dialog.get_player_info()
 
-        if player_id_map:
+        if player_id_info:
             # Store or process the collected player IDs
-            self.player_id_map = player_id_map
-            messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
+            self.player_id_info = player_id_info
+            messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_info}")
 
         # Process the player IDs (e.g., save to the database or display in UI)
         # messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
@@ -248,6 +249,9 @@ class MainFrame(ctk.CTkFrame):
         # Initializing remote data instance
         self.remote_data = RemoteData()
 
+        # Initializing local data instance for excel
+        self.local_data_excel = LocalDataExcel()
+
     def com_port_connected_label(self):
         self.label.configure(text=self.dynamic_label)
 
@@ -280,13 +284,10 @@ class MainFrame(ctk.CTkFrame):
                     # converting dict into player model and passing it to database
                     player_dict = child
                     player_model = PlayerModel(**player_dict, race_type=race_type, race_date=cd)
-                    # print(f"Data: {player_model.to_dict()}")
+                    # self.remote_data.update_player_data(player_model)
 
-                    self.remote_data.update_player_data(player_model)
-
-                # fetch_all_record = self.local_data.fetch_all_data()
-                # for un_synced_child in fetch_all_record:
-                #     print(f"saved and un synced data: {un_synced_child}")
+                    # saving locally in excel sheet
+                    self.local_data_excel.save_to_excel(player_model)
 
             else:
                 if 'wins!!' in status:
@@ -330,8 +331,14 @@ class MainFrame(ctk.CTkFrame):
             player_number = playerData.get("player_number")
 
             # fetching player id from side_bar and adding it to player data
-            player_id = self.sidebar.player_id_map.get(player_number, "Unknown ID")
+            player_id_info = self.sidebar.player_id_info.get(player_number, {"id": "Unknown ID", "city": "Unknown City", "country": "Unknown Country"})
+
+            player_id = player_id_info['id']
+            player_city = player_id_info['city']
+            player_country = player_id_info['country']
             playerData["player_id"] = player_id  # adding player_id to player data
+            playerData["player_city"] = player_city
+            playerData["player_country"] = player_country
 
             self.playersDataList.append(playerData)
             self.playerWidget.append(PlayerInfo(self, 'red', playerData, self.len()))
@@ -494,34 +501,54 @@ class Circle(tkinter.Frame):
 class PlayerIDDialog(ctk.CTkToplevel):
     def __init__(self, parent, num_players):
         super().__init__(parent)
-        self.title("Enter Player IDs")
+        self.title("Enter Player Information")
         self.num_players = num_players
-        self.player_id_map = {}
+        self.player_info_map = {}
 
         # Create input fields for each player
         self.entries = {}
         for i in range(1, num_players + 1):
-            label = ctk.CTkLabel(self, text=f"Player {i} ID:")
-            label.grid(row=i - 1, column=0, padx=10, pady=5)
-            entry = ctk.CTkEntry(self)
-            entry.grid(row=i - 1, column=1, padx=10, pady=5)
-            self.entries[i] = entry
+            # Player ID input
+            label_id = ctk.CTkLabel(self, text=f"Player {i} ID:")
+            label_id.grid(row=i - 1, column=0, padx=10, pady=5)
+            entry_id = ctk.CTkEntry(self)
+            entry_id.grid(row=i - 1, column=1, padx=10, pady=5)
+
+            # Player City input
+            label_city = ctk.CTkLabel(self, text=f"Player {i} City:")
+            label_city.grid(row=i - 1, column=2, padx=10, pady=5)
+            entry_city = ctk.CTkEntry(self)
+            entry_city.grid(row=i - 1, column=3, padx=10, pady=5)
+
+            # Player Country input
+            label_country = ctk.CTkLabel(self, text=f"Player {i} Country:")
+            label_country.grid(row=i - 1, column=4, padx=10, pady=5)
+            entry_country = ctk.CTkEntry(self)
+            entry_country.grid(row=i - 1, column=5, padx=10, pady=5)
+
+            self.entries[i] = (entry_id, entry_city, entry_country)
 
         # Confirm button
         self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm)
-        self.confirm_button.grid(row=num_players, column=0, columnspan=2, pady=10)
+        self.confirm_button.grid(row=num_players, column=0, columnspan=6, pady=10)
 
     def on_confirm(self):
         # Collect data from entries
-        for i, entry in self.entries.items():
-            player_id = entry.get()
-            if player_id:
-                self.player_id_map[i] = player_id
+        for i, (entry_id, entry_city, entry_country) in self.entries.items():
+            player_id = entry_id.get()
+            player_city = entry_city.get()
+            player_country = entry_country.get()
+            if player_id and player_city and player_country:
+                self.player_info_map[i] = {
+                    'id': player_id,
+                    'city': player_city,
+                    'country': player_country
+                }
         self.destroy()  # Close dialog window
 
-    def get_player_ids(self):
+    def get_player_info(self):
         self.wait_window()  # Wait until the dialog is closed
-        return self.player_id_map
+        return self.player_info_map
 
 
 if __name__ == "__main__":
