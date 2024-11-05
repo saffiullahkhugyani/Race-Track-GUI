@@ -1,12 +1,16 @@
 import time
-
+from datetime import datetime
 import serial.tools.list_ports
 import serial
 import json
 import threading
 import tkinter
-from tkinter import messagebox, font
+from tkinter import messagebox, font, simpledialog
 import customtkinter as ctk
+
+from remote_data import RemoteData
+from player_model import PlayerModel
+from local_data import LocalData
 
 
 class SerialCommunication:
@@ -60,11 +64,10 @@ class SerialCommunication:
                         # updating the label based on the game
                         if "status" in received_data:
                             self.status_update_label_callback(received_data)
-                        # self.label_update_callback(received_data)
-                        # print(received_data)
+
                     else:
                         pass
-                        # self.label_update_callback(data)  # Update label with received data
+
                 except json.JSONDecodeError as e:
                     print("JSON decode error:", e)
                     print(data)
@@ -94,9 +97,16 @@ class App(ctk.CTk):
         self.bind("<F11>", self.toggle_full_screen)
         self.bind("<Escape>", self.end_full_screen)
 
-        # widgets
-        self.main_frame = MainFrame(self)
-        self.side_bar = SideBar(self, self.main_frame)
+        # side_bar instance with None for maine_frame
+        self.side_bar = SideBar(self, main_frame=None)
+
+        # passing side_bar instance into main_frame
+        self.main_frame = MainFrame(self, self.side_bar)
+
+        # updating reference of maine frame into side_bar
+        # and configuring the reset button command after main frame is initialized
+        self.side_bar.main_frame = self.main_frame
+        self.side_bar.reset_button.configure(command=self.main_frame.destroy_widget)
 
         # # serial communication class initializing
         # self.serial_communication = None
@@ -128,6 +138,9 @@ class SideBar(ctk.CTkFrame):
     def __init__(self, parent, main_frame):
         super().__init__(parent)
 
+        # Dictionary to store player IDs
+        self.player_id_map = {}
+
         # instance of Main frame to access the class methods
         self.is_success = None
         self.message = None
@@ -140,7 +153,7 @@ class SideBar(ctk.CTkFrame):
         self.place(x=0, y=0, relwidth=0.12, relheight=1)
 
         # reset button
-        self.reset_button = ctk.CTkButton(self, state="disabled", text='Reset', command=self.main_frame.destroy_widget)
+        self.reset_button = ctk.CTkButton(self, state="disabled", text='Reset', command=None)
         self.reset_button.pack(side='bottom', padx=5, pady=5)
 
         # taking input of (COM) port number
@@ -148,6 +161,10 @@ class SideBar(ctk.CTkFrame):
         self.com_port_entry.pack(padx=5, pady=5)
         self.connect_button = ctk.CTkButton(self, text='Connect', command=self.connect_serial)
         self.connect_button.pack(side='top', padx=5, pady=5)
+
+        # Add Player ID button
+        self.add_player_button = ctk.CTkButton(self, text='Add Players', command=self.add_players)
+        self.add_player_button.pack(side='top', padx=5, pady=5)
 
         self.circle = Circle(self, radius=25, color="red")
 
@@ -180,14 +197,41 @@ class SideBar(ctk.CTkFrame):
         else:
             messagebox.showerror("Failed", message)
 
+    def add_players(self):
+        # Ask for the number of players
+        num_players = simpledialog.askinteger("Number of Players", "Enter the number of players:")
+        if num_players is None:
+            return  # User canceled
+
+        # for i in range(1, num_players + 1):
+        #     player_id = simpledialog.askstring("Player ID", f"Enter ID for Player {i}:")
+        #     if player_id:
+        #         self.player_id_map[i] = player_id
+
+        player_id_dialog = PlayerIDDialog(self, num_players)
+        player_id_map = player_id_dialog.get_player_ids()
+
+        if player_id_map:
+            # Store or process the collected player IDs
+            self.player_id_map = player_id_map
+            messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
+
+        # Process the player IDs (e.g., save to the database or display in UI)
+        # messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
+        # Optionally, store the player_ids in a variable or pass them to another part of the app
+
 
 class MainFrame(ctk.CTkFrame):
     playerWidget = []
     playersDataList = []
     dynamic_label = None
 
-    def __init__(self, parent):
+    def __init__(self, parent, sidebar):
         super().__init__(parent)
+
+        # store reference to sidebar
+        self.sidebar = sidebar
+
         self.place(relx=0.12, y=0, relwidth=0.88, relheight=1)
 
         self.label = ctk.CTkLabel(self, text='Loading...',
@@ -198,13 +242,19 @@ class MainFrame(ctk.CTkFrame):
         self.dynamic_label = parent.ready_headline
         self.dynamic_race_type = parent.race_type
 
+        # Initializing  Local data instance
+        self.local_data = LocalData()
+
+        # Initializing remote data instance
+        self.remote_data = RemoteData()
+
     def com_port_connected_label(self):
         self.label.configure(text=self.dynamic_label)
 
     def status_update_label(self, data):
 
         """ print function for testing in development """
-        print(f"status update function: {data}")
+        # print(f"status update function: {data}")
 
         status = data.get("status", "")
 
@@ -217,6 +267,27 @@ class MainFrame(ctk.CTkFrame):
             elif status == "Reset":
                 print(f"status: {status}")
                 self.destroy_widget()
+            elif status == "Race finished":
+
+                # date of race
+                # Date of race as a string
+                date_stamp = datetime.now()
+                cd = date_stamp.date().strftime('%Y-%m-%d')  # Format date as string "YYYY-MM-DD"
+                print(f"Date: {cd}")
+                # race type
+                race_type = self.dynamic_race_type
+                for child in self.playersDataList:
+                    # converting dict into player model and passing it to database
+                    player_dict = child
+                    player_model = PlayerModel(**player_dict, race_type=race_type, race_date=cd)
+                    # print(f"Data: {player_model.to_dict()}")
+
+                    self.remote_data.update_player_data(player_model)
+
+                # fetch_all_record = self.local_data.fetch_all_data()
+                # for un_synced_child in fetch_all_record:
+                #     print(f"saved and un synced data: {un_synced_child}")
+
             else:
                 if 'wins!!' in status:
                     print(f'oho status {status}')
@@ -248,10 +319,20 @@ class MainFrame(ctk.CTkFrame):
     def display(self, data):
 
         """ print function for testing in development """
-        print(f" display function: {data}")
+        # print(f" display function: {data}")
 
         if isinstance(data, dict) and all(key in data for key in ("player_info",)):
+
+            # extracting player information
             playerData = data.get("player_info")
+
+            # getting player number
+            player_number = playerData.get("player_number")
+
+            # fetching player id from side_bar and adding it to player data
+            player_id = self.sidebar.player_id_map.get(player_number, "Unknown ID")
+            playerData["player_id"] = player_id  # adding player_id to player data
+
             self.playersDataList.append(playerData)
             self.playerWidget.append(PlayerInfo(self, 'red', playerData, self.len()))
             time.sleep(0.1)
@@ -408,6 +489,39 @@ class Circle(tkinter.Frame):
     def update_connection_status(self):
         self.canvas.itemconfig(self.circle, fill='blue')
         self.label.configure(text="Connected")
+
+
+class PlayerIDDialog(ctk.CTkToplevel):
+    def __init__(self, parent, num_players):
+        super().__init__(parent)
+        self.title("Enter Player IDs")
+        self.num_players = num_players
+        self.player_id_map = {}
+
+        # Create input fields for each player
+        self.entries = {}
+        for i in range(1, num_players + 1):
+            label = ctk.CTkLabel(self, text=f"Player {i} ID:")
+            label.grid(row=i - 1, column=0, padx=10, pady=5)
+            entry = ctk.CTkEntry(self)
+            entry.grid(row=i - 1, column=1, padx=10, pady=5)
+            self.entries[i] = entry
+
+        # Confirm button
+        self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm)
+        self.confirm_button.grid(row=num_players, column=0, columnspan=2, pady=10)
+
+    def on_confirm(self):
+        # Collect data from entries
+        for i, entry in self.entries.items():
+            player_id = entry.get()
+            if player_id:
+                self.player_id_map[i] = player_id
+        self.destroy()  # Close dialog window
+
+    def get_player_ids(self):
+        self.wait_window()  # Wait until the dialog is closed
+        return self.player_id_map
 
 
 if __name__ == "__main__":
