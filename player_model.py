@@ -14,7 +14,8 @@ class PlayerModel:
     def __repr__(self):
         return (f"PlayerInfo(player_id={self.player_id}, player_number={self.player_number}, position={self.position}, "
                 f"race_time={self.race_time}, reaction_time={self.reaction_time}, "
-                f"lap_time={self.lap_time}, eliminated={self.eliminated})")
+                f"lap_time={self.lap_time}, eliminated={self.eliminated}, "
+                f"race_type={self.race_type}, race_date={self.race_date})")
 
     def to_dict(self):
         return {
