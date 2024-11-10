@@ -72,6 +72,8 @@ class RemoteData:
             response = supabase_client.table("player_data_testing").insert(player_model.to_dict()).execute()
             if response.data:
                 print("Successfully sync with Supabase, saving locally with synced.")
+                print(f"Player model dict: {player_model.to_dict}")
+                print(f"Player model: {player_model}")
                 self.local_data.save_locally_synced(player_model)
             else:
                 print("Failed to sync with Supabase, saving locally.")

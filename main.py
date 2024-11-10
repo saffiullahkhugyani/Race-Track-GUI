@@ -103,7 +103,7 @@ class App(ctk.CTk):
         # passing side_bar instance into main_frame
         self.main_frame = MainFrame(self, self.side_bar)
 
-        # updating reference of maine frame into side_bar
+        # updating reference of main frame into side_bar
         # and configuring the reset button command after main frame is initialized
         self.side_bar.main_frame = self.main_frame
         self.side_bar.reset_button.configure(command=self.main_frame.destroy_widget)
@@ -138,9 +138,6 @@ class SideBar(ctk.CTkFrame):
     def __init__(self, parent, main_frame):
         super().__init__(parent)
 
-        # Dictionary to store player IDs
-        self.player_id_map = {}
-
         # instance of Main frame to access the class methods
         self.is_success = None
         self.message = None
@@ -152,27 +149,62 @@ class SideBar(ctk.CTkFrame):
         self.configure(fg_color='gray70')
         self.place(x=0, y=0, relwidth=0.12, relheight=1)
 
-        # reset button
-        self.reset_button = ctk.CTkButton(self, state="disabled", text='Reset', command=None)
-        self.reset_button.pack(side='bottom', padx=5, pady=5)
+        # Race type dropdown
+        self.race_types = ["Jet", "Plane", "Co2 Car",
+                           "Gravity car","Walk along glider", "Jet glider"]  # predefined race types
+        self.race_type_dropdown = ctk.CTkOptionMenu(self, values=self.race_types)
+        self.race_type_dropdown.pack(padx=5, pady=5)
+
+        # headline Dropdown
+        self.headline_list = ["Get Ready Pilots", "Get Ready Drivers"]
+        self.headline_dropdown = ctk.CTkOptionMenu(self, values=self.headline_list)
+        self.headline_dropdown.pack(padx=5, pady=5)
+
+        self.track_distance_entry = ctk.CTkEntry(self, placeholder_text="Enter Track Distance")
+        self.track_distance_entry.pack(padx=5, pady=5)
+
+        self.country_entry = ctk.CTkEntry(self, placeholder_text="Enter Country")
+        self.country_entry.pack(padx=5, pady=5)
+
+        self.city_entry = ctk.CTkEntry(self, placeholder_text="Enter City")
+        self.city_entry.pack(padx=5, pady=5)
 
         # taking input of (COM) port number
         self.com_port_entry = ctk.CTkEntry(self, placeholder_text="Enter (COM) Number")
         self.com_port_entry.pack(padx=5, pady=5)
+
+        # connect button and reset button
         self.connect_button = ctk.CTkButton(self, text='Connect', command=self.connect_serial)
         self.connect_button.pack(side='top', padx=5, pady=5)
 
-        # Add Player ID button
-        self.add_player_button = ctk.CTkButton(self, text='Add Players', command=self.add_players)
-        self.add_player_button.pack(side='top', padx=5, pady=5)
+        self.reset_button = ctk.CTkButton(self, state="disabled", text='Reset', command=None)
+        self.reset_button.pack(side='bottom', padx=5, pady=5)
 
+        # serial connection indicator RED for disconnect, BLUE for connected
         self.circle = Circle(self, radius=25, color="red")
 
     def connect_serial(self):
-        com_port = "COM" + self.com_port_entry.get()
 
+        # validate that all the fields are filled
+        if not all([
+            self.race_type_dropdown.get().strip(),
+            self.headline_dropdown.get().strip(),
+            self.track_distance_entry.get().strip(),
+            self.country_entry.get().strip(),
+            self.city_entry.get().strip(),
+            self.com_port_entry.get().strip()
+        ]):
+            messagebox.showwarning("Incomplete Information", "Please fill in all the fields"
+                                                             " before connecting")
+            return
+
+        print(f"race type: {self.race_type_dropdown.get()}")
+        print(f"headline: {self.headline_dropdown.get()}")
+
+        # Geather and display COM port information
+        com_port = "COM" + self.com_port_entry.get()
         self.com_port_entry.delete(0, 'end')
-        print(com_port)
+        print(f"Connecting to {com_port} with provided race details...")
 
         # initializing serial communication
         self.serial_communication = SerialCommunication(com_port, 9600,
@@ -196,29 +228,6 @@ class SideBar(ctk.CTkFrame):
             self.reset_button.configure(state='normal')
         else:
             messagebox.showerror("Failed", message)
-
-    def add_players(self):
-        # Ask for the number of players
-        num_players = simpledialog.askinteger("Number of Players", "Enter the number of players:")
-        if num_players is None:
-            return  # User canceled
-
-        # for i in range(1, num_players + 1):
-        #     player_id = simpledialog.askstring("Player ID", f"Enter ID for Player {i}:")
-        #     if player_id:
-        #         self.player_id_map[i] = player_id
-
-        player_id_dialog = PlayerIDDialog(self, num_players)
-        player_id_map = player_id_dialog.get_player_ids()
-
-        if player_id_map:
-            # Store or process the collected player IDs
-            self.player_id_map = player_id_map
-            messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
-
-        # Process the player IDs (e.g., save to the database or display in UI)
-        # messagebox.showinfo("Player IDs", f"Collected IDs: {self.player_id_map}")
-        # Optionally, store the player_ids in a variable or pass them to another part of the app
 
 
 class MainFrame(ctk.CTkFrame):
@@ -282,7 +291,7 @@ class MainFrame(ctk.CTkFrame):
                     player_model = PlayerModel(**player_dict, race_type=race_type, race_date=cd)
                     # print(f"Data: {player_model.to_dict()}")
 
-                    self.remote_data.update_player_data(player_model)
+                    # self.remote_data.update_player_data(player_model)
 
                 # fetch_all_record = self.local_data.fetch_all_data()
                 # for un_synced_child in fetch_all_record:
@@ -325,13 +334,6 @@ class MainFrame(ctk.CTkFrame):
 
             # extracting player information
             playerData = data.get("player_info")
-
-            # getting player number
-            player_number = playerData.get("player_number")
-
-            # fetching player id from side_bar and adding it to player data
-            player_id = self.sidebar.player_id_map.get(player_number, "Unknown ID")
-            playerData["player_id"] = player_id  # adding player_id to player data
 
             self.playersDataList.append(playerData)
             self.playerWidget.append(PlayerInfo(self, 'red', playerData, self.len()))

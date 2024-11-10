@@ -47,11 +47,12 @@ class LocalData:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO player_data (player_id, player_number, position, race_time, reaction_time, lap_time,
-             eliminated, synced)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (player_model.player_id, player_model.player_number, player_model.position, player_model.race_time,
-              player_model.reaction_time, player_model.lap_time, player_model.eliminated, 0))
+            INSERT INTO player_data (player_id, player_number, race_date, race_type, position, race_time, reaction_time, 
+            lap_time, eliminated, synced)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (player_model.player_id, player_model.player_number, player_model.race_date, player_model.race_type,
+              player_model.position, player_model.race_time, player_model.reaction_time,
+              player_model.lap_time, player_model.eliminated, 0))
         conn.commit()
         self.close_connection()
 
@@ -59,11 +60,12 @@ class LocalData:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-                INSERT INTO player_data (player_id, player_number, position, race_time, reaction_time, 
-                lap_time, eliminated, synced)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (player_model.player_id, player_model.player_number, player_model.position, player_model.race_time,
-                  player_model.reaction_time, player_model.lap_time, player_model.eliminated, 1))
+                INSERT INTO player_data (player_id, player_number, race_date, race_type, position, 
+                race_time, reaction_time, lap_time, eliminated, synced)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (player_model.player_id, player_model.player_number, player_model.race_date, player_model.race_type,
+                  player_model.position, player_model.race_time, player_model.reaction_time,
+                  player_model.lap_time, player_model.eliminated, 1))
         conn.commit()
         self.close_connection()
 
