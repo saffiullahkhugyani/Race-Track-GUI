@@ -30,16 +30,30 @@ class LocalData:
             CREATE TABLE IF NOT EXISTS player_data (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 player_id TEXT,
-                player_number TEXT,
                 race_date TEXT,
                 race_type TEXT,
                 position INTEGER,
                 race_time REAL,
                 reaction_time REAL,
                 lap_time REAL,
+                track_distance REAL,
                 eliminated INTEGER,
                 synced INTEGER DEFAULT 0)
         ''')
+
+        # Table for storing race session information
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS race_session_info (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    race_type TEXT,
+                    headline TEXT,
+                    track_distance REAL,
+                    country TEXT,
+                    city TEXT,
+                    com_port TEXT,
+                    inserted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
+            ''')
+
         conn.commit()
         self.close_connection()
 
@@ -47,12 +61,12 @@ class LocalData:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO player_data (player_id, player_number, race_date, race_type, position, race_time, reaction_time, 
-            lap_time, eliminated, synced)
+            INSERT INTO player_data (player_id, race_date, race_type, position, race_time, reaction_time, 
+            lap_time, track_distance, eliminated, synced)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (player_model.player_id, player_model.player_number, player_model.race_date, player_model.race_type,
+        ''', (player_model.player_id, player_model.race_date, player_model.race_type,
               player_model.position, player_model.race_time, player_model.reaction_time,
-              player_model.lap_time, player_model.eliminated, 0))
+              player_model.lap_time, player_model.track_distance, player_model.eliminated, 0))
         conn.commit()
         self.close_connection()
 
@@ -60,12 +74,12 @@ class LocalData:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-                INSERT INTO player_data (player_id, player_number, race_date, race_type, position, 
-                race_time, reaction_time, lap_time, eliminated, synced)
+                INSERT INTO player_data (player_id, race_date, race_type, position, 
+                race_time, reaction_time, lap_time, track_distance, eliminated, synced)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (player_model.player_id, player_model.player_number, player_model.race_date, player_model.race_type,
+            ''', (player_model.player_id, player_model.race_date, player_model.race_type,
                   player_model.position, player_model.race_time, player_model.reaction_time,
-                  player_model.lap_time, player_model.eliminated, 1))
+                  player_model.lap_time, player_model.track_distance, player_model.eliminated, 1))
         conn.commit()
         self.close_connection()
 
@@ -88,5 +102,16 @@ class LocalData:
         conn = self.get_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE player_data SET synced = 1 WHERE id = ?", (player_id,))
+        conn.commit()
+        self.close_connection()
+
+    def save_race_session_info(self, race_type,headline, track_distance, country, city, com_port):
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+                INSERT INTO race_session_info (race_type, headline, track_distance, country, city, 
+                com_port)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (race_type, headline, track_distance, country,city,com_port))
         conn.commit()
         self.close_connection()

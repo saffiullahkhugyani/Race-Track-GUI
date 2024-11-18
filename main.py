@@ -84,8 +84,6 @@ class App(ctk.CTk):
         super().__init__()
         self.title(title)
 
-        self.read_config_file()
-
         self.geometry(f"{size[0]}x{size[1]}+{100}+{50}")
         self.minsize(650, 500)
 
@@ -108,10 +106,6 @@ class App(ctk.CTk):
         self.side_bar.main_frame = self.main_frame
         self.side_bar.reset_button.configure(command=self.main_frame.destroy_widget)
 
-        # # serial communication class initializing
-        # self.serial_communication = None
-        # self.serial_communication = SerialCommunication('COM6', 9600, self.main_frame.display)
-
         # run
         self.mainloop()
 
@@ -126,13 +120,6 @@ class App(ctk.CTk):
         self.full_screen_state = False
         self.attributes("-fullscreen", False)
 
-    def read_config_file(self, event=None):
-        with open('config.json') as config_file:
-            data = json.load(config_file)
-
-            self.race_type = data['race_type']
-            self.ready_headline = data['ready_headline']
-
 
 class SideBar(ctk.CTkFrame):
     def __init__(self, parent, main_frame):
@@ -145,6 +132,12 @@ class SideBar(ctk.CTkFrame):
 
         # serial communication class initializing
         self.serial_communication = None
+
+        # Initializing  Local data instance
+        self.local_data = LocalData()
+
+        # sensor data
+        self.sensor_data = None
 
         self.configure(fg_color='gray70')
         self.place(x=0, y=0, relwidth=0.12, relheight=1)
@@ -183,6 +176,31 @@ class SideBar(ctk.CTkFrame):
         # serial connection indicator RED for disconnect, BLUE for connected
         self.circle = Circle(self, radius=25, color="red")
 
+        # Divider
+        self.divider_frame = ctk.CTkFrame(self, height=2, fg_color="gray80")
+        self.divider_frame.pack(fill='x', pady=10, padx=4)
+
+        # Container for the ir sensors indication
+        self.status_container = ctk.CTkFrame(self)
+        self.status_container.configure(fg_color='gray70')
+        self.status_container.pack(padx=5)
+
+        self.label = ctk.CTkLabel(self.status_container, text="Ir Sensor Status",
+                                  font=ctk.CTkFont(size=15, weight=font.BOLD, family='Helvetica'))
+        self.label.pack(side='top', pady=5)
+
+        # Serial connection indicator: circle and label
+        self.s1 = Circle(self.status_container, radius=8, color="red")
+        self.s1.pack(side='top', pady=5)
+        self.s1.label.configure(text="Player 1", bg='gray70',
+                                font=ctk.CTkFont(size=12, weight=font.BOLD, family='Helvetica'))
+
+        # Serial connection indicator: circle and label
+        self.s2 = Circle(self.status_container, radius=8, color="red")
+        self.s2.pack(side='top', pady=5)
+        self.s2.label.configure(text="Player 2",
+                                font=ctk.CTkFont(size=12, weight=font.BOLD, family='Helvetica'))
+
     def connect_serial(self):
 
         # validate that all the fields are filled
@@ -198,8 +216,17 @@ class SideBar(ctk.CTkFrame):
                                                              " before connecting")
             return
 
-        print(f"race type: {self.race_type_dropdown.get()}")
-        print(f"headline: {self.headline_dropdown.get()}")
+        # if all fields are validated saving a copy of data into database
+        self.local_data.save_race_session_info(race_type=self.race_type_dropdown.get(), headline=self.headline_dropdown.get(),
+                                               track_distance=self.track_distance_entry.get().strip(),
+                                               country=self.country_entry.get().strip(),
+                                               city=self.city_entry.get().strip(),
+                                               com_port=self.com_port_entry.get().strip())
+
+        # passing data to main frame
+        self.main_frame.race_type = self.race_type_dropdown.get().strip()
+        self.main_frame.race_headline = self.headline_dropdown.get().strip()
+        self.main_frame.track_distance = self.track_distance_entry.get().strip()
 
         # Geather and display COM port information
         com_port = "COM" + self.com_port_entry.get()
@@ -229,6 +256,28 @@ class SideBar(ctk.CTkFrame):
         else:
             messagebox.showerror("Failed", message)
 
+    def ir_sensor_status(self, data):
+        self.sensor_data = data
+
+        # this method update the Ir sensor info on the sidebar
+        if isinstance(data, dict) and "status" in data:
+            details = data.get("details", {})
+
+            if isinstance(details, dict):  # Ensure 'details' is a dictionary
+                player_num = details.get("player", None)
+                sensor_status = details.get("ir_sensor_status", False)
+
+                if player_num == 1:
+                    print(f"Player {player_num} sensor status is {sensor_status}")
+                    self.s1.update_ir_sensor_status(status=sensor_status)
+
+                if player_num == 2:
+                    print(f"Player {player_num} sensor status is {sensor_status}")
+                    self.s2.update_ir_sensor_status(status=sensor_status)
+
+            else:
+                print("No details available.")
+
 
 class MainFrame(ctk.CTkFrame):
     playerWidget = []
@@ -243,13 +292,14 @@ class MainFrame(ctk.CTkFrame):
 
         self.place(relx=0.12, y=0, relwidth=0.88, relheight=1)
 
-        self.label = ctk.CTkLabel(self, text='Loading...',
+        self.label = ctk.CTkLabel(self, text='Enter Race Details',
                                   font=ctk.CTkFont(size=120, weight=font.BOLD, family='Helvetica'))
         self.label.pack(expand=True, fill='both')
 
-        # initializing dynamic label
-        self.dynamic_label = parent.ready_headline
-        self.dynamic_race_type = parent.race_type
+        # list for store race details
+        self.race_type = None
+        self.race_headline = None
+        self.track_distance = None
 
         # Initializing  Local data instance
         self.local_data = LocalData()
@@ -257,8 +307,11 @@ class MainFrame(ctk.CTkFrame):
         # Initializing remote data instance
         self.remote_data = RemoteData()
 
+        # Initializing model list for final data
+        self.player_model_list = []
+
     def com_port_connected_label(self):
-        self.label.configure(text=self.dynamic_label)
+        self.label.configure(text=self.race_headline)
 
     def status_update_label(self, data):
 
@@ -277,31 +330,34 @@ class MainFrame(ctk.CTkFrame):
                 print(f"status: {status}")
                 self.destroy_widget()
             elif status == "Race finished":
-
                 # date of race
                 # Date of race as a string
                 date_stamp = datetime.now()
                 cd = date_stamp.date().strftime('%Y-%m-%d')  # Format date as string "YYYY-MM-DD"
                 print(f"Date: {cd}")
-                # race type
-                race_type = self.dynamic_race_type
+
                 for child in self.playersDataList:
                     # converting dict into player model and passing it to database
                     player_dict = child
-                    player_model = PlayerModel(**player_dict, race_type=race_type, race_date=cd)
-                    # print(f"Data: {player_model.to_dict()}")
+                    player_id_dialog = PlayerIDDialog(self, child["player_number"])
+                    player_id = player_id_dialog.get_player_id()
 
-                    # self.remote_data.update_player_data(player_model)
+                    player_model = PlayerModel(**player_dict, race_type=self.race_type,
+                                               race_date=cd, player_id=player_id,
+                                               track_distance=self.track_distance)
+                    self.player_model_list.append(player_model)
+                    print(f"Data before sync: {player_model.to_dict()}")
 
-                # fetch_all_record = self.local_data.fetch_all_data()
-                # for un_synced_child in fetch_all_record:
-                #     print(f"saved and un synced data: {un_synced_child}")
-
+                # to sync data to remote and local databases
+                for data in self.player_model_list:
+                    self.remote_data.update_player_data(data)
+            elif status == "Ir Sensor":
+                self.sidebar.ir_sensor_status(data=data)
             else:
                 if 'wins!!' in status:
                     print(f'oho status {status}')
                     self.label.pack(expand=False, fill='both')
-                    self.label.configure(text=f"{self.dynamic_race_type} {status}",
+                    self.label.configure(text=f"{self.race_type} {status}",
                                          font=ctk.CTkFont(size=100, weight=font.BOLD, family='Helvetica'))
                 else:
                     self.label.pack(expand=False, fill='both')
@@ -320,10 +376,11 @@ class MainFrame(ctk.CTkFrame):
                 print(f"list is not empty: {len(self.playerWidget)}")
                 self.playerWidget = []
                 self.playersDataList = []
+                self.player_model_list = []
             else:
                 print(f"Player widget list is empty: {len(self.playerWidget)}")
             self.label.pack(expand=True, fill='both')
-            self.label.configure(text=self.dynamic_label)
+            self.label.configure(text=self.race_headline)
 
     def display(self, data):
 
@@ -340,20 +397,6 @@ class MainFrame(ctk.CTkFrame):
             time.sleep(0.1)
         else:
             pass
-
-        # if self.len() > self.playersLength:
-        #     self.playersLength = self.len()
-        # else:
-        #     self.checkAllData = True
-
-        # print(self.playersLength)
-
-        # if self.checkAllData:
-        #     for index, child in enumerate(self.playersDataList):
-        #         self.playerWidget.append(PlayerInfo(self, 'red', child, self.len()))
-        #         time.sleep(0.1)
-        #
-        # print(f"Player wid length: {len(self.playerWidget)}")
 
 
 class PlayerInfo(ctk.CTkFrame):
@@ -492,38 +535,40 @@ class Circle(tkinter.Frame):
         self.canvas.itemconfig(self.circle, fill='blue')
         self.label.configure(text="Connected")
 
+    def update_ir_sensor_status(self, status=False):
+        if status:
+            self.canvas.itemconfig(self.circle, fill="red")
+        else:
+            self.canvas.itemconfig(self.circle, fill="green")
+
 
 class PlayerIDDialog(ctk.CTkToplevel):
-    def __init__(self, parent, num_players):
+    def __init__(self, parent, player_number):
         super().__init__(parent)
-        self.title("Enter Player IDs")
-        self.num_players = num_players
-        self.player_id_map = {}
+        self.title("Enter Player ID")
 
         # Create input fields for each player
-        self.entries = {}
-        for i in range(1, num_players + 1):
-            label = ctk.CTkLabel(self, text=f"Player {i} ID:")
-            label.grid(row=i - 1, column=0, padx=10, pady=5)
-            entry = ctk.CTkEntry(self)
-            entry.grid(row=i - 1, column=1, padx=10, pady=5)
-            self.entries[i] = entry
+        self.player_id = None
+        self.label = ctk.CTkLabel(self, text=f"Player {player_number} ID:")
+        self.label.grid(row=1 - 1, column=0, padx=10, pady=5)
+        self.entry = ctk.CTkEntry(self)
+        self.entry.grid(row=1 - 1, column=1, padx=10, pady=5)
+        self.player_id = self.entry.get().strip()
 
         # Confirm button
         self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm)
-        self.confirm_button.grid(row=num_players, column=0, columnspan=2, pady=10)
+        self.confirm_button.grid(row=1, column=0, columnspan=2, pady=10)
 
     def on_confirm(self):
         # Collect data from entries
-        for i, entry in self.entries.items():
-            player_id = entry.get()
-            if player_id:
-                self.player_id_map[i] = player_id
+        self.player_id = self.entry.get().strip()
+        print(f"Player id: {self.entry.get().strip()}")
+
         self.destroy()  # Close dialog window
 
-    def get_player_ids(self):
+    def get_player_id(self):
         self.wait_window()  # Wait until the dialog is closed
-        return self.player_id_map
+        return self.player_id
 
 
 if __name__ == "__main__":

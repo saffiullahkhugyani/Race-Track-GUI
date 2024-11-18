@@ -33,9 +33,13 @@ class RemoteData:
     @staticmethod
     def check_internet():
         try:
-            requests.get('https://www.google.com', timeout=5)
-            return True
-        except requests.ConnectionError:
+            response = requests.get('https://www.google.com', timeout=5)
+            return response.status_code == 200
+        except requests.exceptions.ReadTimeout:
+            print("Connection timed out. Internet may be slow or unavailable.")
+            return False
+        except requests.exceptions.RequestException as e:
+            print(f"An error occurred: {e}")
             return False
 
     def automated_sync_data(self):
@@ -45,23 +49,26 @@ class RemoteData:
                 for record in data:
                     player_data = {
                         "player_id": record[1],
-                        "player_number": record[2],
-                        "position": record[3],
-                        "race_time": record[4],
-                        "reaction_time": record[5],
-                        "lap_time": record[6],
-                        "eliminated": record[7]
+                        "race_date": record[2],
+                        "race_type": record[3],
+                        "position": record[4],
+                        "race_time": record[5],
+                        "reaction_time": record[6],
+                        "lap_time": record[7],
+                        "track_distance": record[8],
+                        "eliminated": record[9]
                     }
 
+                    # print(player_data)
+
                     # Insert into Supabase
-                    result = supabase_client.table("testing_python").insert(player_data).execute()
-                    print(f"Result from supabase: {result.data}")
+                    result = supabase_client.table("player_data_testing").insert(player_data).execute()
+                    print(f"Record synced to supabase: {result.data}")
                     if result.data:
-                        print(f"Data is present")
+                        print("data synced successfully")
+                        self.local_data.synced_record(record[0])
                     else:
                         print("something went wrong")
-
-                    #     self.local_data.synced_record(record[0])
 
             # Sleep for 1 minute before the next sync attempt
             time.sleep(60)
@@ -69,11 +76,10 @@ class RemoteData:
     def update_player_data(self, player_model):
         if self.check_internet():
             # Attempt to save directly to Supabase
-            response = supabase_client.table("player_data_testing").insert(player_model.to_dict()).execute()
+            response = supabase_client.table("player_data_testing").insert(player_model.to_sync_dict()).execute()
             if response.data:
                 print("Successfully sync with Supabase, saving locally with synced.")
-                print(f"Player model dict: {player_model.to_dict}")
-                print(f"Player model: {player_model}")
+                print(f"Player model Synced: {player_model.to_sync_dict()}")
                 self.local_data.save_locally_synced(player_model)
             else:
                 print("Failed to sync with Supabase, saving locally.")
