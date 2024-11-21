@@ -190,13 +190,13 @@ class SideBar(ctk.CTkFrame):
         self.label.pack(side='top', pady=5)
 
         # Serial connection indicator: circle and label
-        self.s1 = Circle(self.status_container, radius=8, color="red")
+        self.s1 = Circle(self.status_container, radius=8, color="green")
         self.s1.pack(side='top', pady=5)
         self.s1.label.configure(text="Player 1", bg='gray70',
                                 font=ctk.CTkFont(size=12, weight=font.BOLD, family='Helvetica'))
 
         # Serial connection indicator: circle and label
-        self.s2 = Circle(self.status_container, radius=8, color="red")
+        self.s2 = Circle(self.status_container, radius=8, color="green")
         self.s2.pack(side='top', pady=5)
         self.s2.label.configure(text="Player 2",
                                 font=ctk.CTkFont(size=12, weight=font.BOLD, family='Helvetica'))
@@ -546,6 +546,10 @@ class PlayerIDDialog(ctk.CTkToplevel):
     def __init__(self, parent, player_number):
         super().__init__(parent)
         self.title("Enter Player ID")
+
+        # Set dialog to be on top and modal
+        self.transient(parent)
+        self.grab_set()
 
         # Create input fields for each player
         self.player_id = None
