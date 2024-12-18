@@ -43,35 +43,47 @@ class RemoteData:
             return False
 
     def automated_sync_data(self):
+        print("Starting automated sync thread...")
         while True:
-            if self.check_internet():
-                data = self.local_data.fetch_all_data()
-                for record in data:
-                    player_data = {
-                        "player_id": record[1],
-                        "race_date": record[2],
-                        "race_type": record[3],
-                        "position": record[4],
-                        "race_time": record[5],
-                        "reaction_time": record[6],
-                        "lap_time": record[7],
-                        "track_distance": record[8],
-                        "eliminated": record[9]
-                    }
+            try:
+                start_time = time.time()
+                print("Checking internet connection...")
+                if self.check_internet():
+                    print("Internet connection detected.")
+                    data = self.local_data.fetch_all_data()
+                    print(f"Fetched local data: {data}")
+                    for record in data:
+                        player_data = {
+                            "player_id": record[1],
+                            "race_date": record[2],
+                            "race_type": record[3],
+                            "position": record[4],
+                            "race_time": record[5],
+                            "reaction_time": record[6],
+                            "lap_time": record[7],
+                            "track_distance": record[8],
+                            "eliminated": record[9],
+                        }
+                        try:
+                            result = supabase_client.table("player_data_testing").insert(player_data).execute()
+                            print(f"Record synced to Supabase: {result.data}")
+                            if result.data:
+                                self.local_data.synced_record(record[0])
+                            else:
+                                print("Failed to sync data.")
+                        except Exception as e:
+                            print(f"Failed to sync record: {record}. Error: {e}")
+                else:
+                    print("No internet connection detected.")
 
-                    # print(player_data)
+                # Ensure the loop runs every 60 seconds
+                elapsed_time = time.time() - start_time
+                sleep_time = max(60 - elapsed_time, 0)
+                print(f"Sleeping for {sleep_time:.2f} seconds...")
+                time.sleep(sleep_time)
 
-                    # Insert into Supabase
-                    result = supabase_client.table("player_data_testing").insert(player_data).execute()
-                    print(f"Record synced to supabase: {result.data}")
-                    if result.data:
-                        print("data synced successfully")
-                        self.local_data.synced_record(record[0])
-                    else:
-                        print("something went wrong")
-
-            # Sleep for 1 minute before the next sync attempt
-            time.sleep(60)
+            except Exception as e:
+                print(f"An unexpected error occurred in the sync thread: {e}")
 
     def update_player_data(self, player_model):
         if self.check_internet():
