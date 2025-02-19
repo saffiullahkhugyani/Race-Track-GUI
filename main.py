@@ -421,7 +421,7 @@ class PlayerInfo(ctk.CTkFrame):
             "OUT"
         )
 
-        color = ['red', 'green', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
+        color = ['green', 'red', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
 
         # configure row and columns
         self.grid_rowconfigure(5, weight=1)
