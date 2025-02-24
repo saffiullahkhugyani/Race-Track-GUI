@@ -336,11 +336,15 @@ class MainFrame(ctk.CTkFrame):
                 cd = date_stamp.date().strftime('%Y-%m-%d')  # Format date as string "YYYY-MM-DD"
                 print(f"Date: {cd}")
 
-                for child in self.playersDataList:
+                dialog = PlayerIDDialog(self, playersDataList=self.playersDataList)
+                player_ids = dialog.get_player_ids()
+                print(player_ids)
+
+                for index, child in enumerate(self.playersDataList):
                     # converting dict into player model and passing it to database
                     player_dict = child
-                    player_id_dialog = PlayerIDDialog(self, child["player_number"])
-                    player_id = player_id_dialog.get_player_id()
+                    # player_id_dialog = PlayerIDDialog(self, child["player_number"])
+                    player_id = player_ids[index]
 
                     player_model = PlayerModel(**player_dict, race_type=self.race_type,
                                                race_date=cd, player_id=player_id,
@@ -421,7 +425,7 @@ class PlayerInfo(ctk.CTkFrame):
             "OUT"
         )
 
-        color = ['green', 'red', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
+        color = ['red', 'green', 'blue', 'yellow'][player_number - 1] if 1 <= player_number <= 4 else 'gray'
 
         # configure row and columns
         self.grid_rowconfigure(5, weight=1)
@@ -543,36 +547,99 @@ class Circle(tkinter.Frame):
 
 
 class PlayerIDDialog(ctk.CTkToplevel):
-    def __init__(self, parent, player_number):
+    def __init__(self, parent, playersDataList):
         super().__init__(parent)
-        self.title("Enter Player ID")
+        self.title("Enter Player IDs")
 
         # Set dialog to be on top and modal
         self.transient(parent)
         self.grab_set()
 
-        # Create input fields for each player
-        self.player_id = None
-        self.label = ctk.CTkLabel(self, text=f"Player {player_number} ID:")
-        self.label.grid(row=1 - 1, column=0, padx=10, pady=5)
-        self.entry = ctk.CTkEntry(self)
-        self.entry.grid(row=1 - 1, column=1, padx=10, pady=5)
-        self.player_id = self.entry.get().strip()
+        self.player_entries = {}  # Store entry widgets
+        self.player_ids = {}  # Store player IDs
+        self.num_players = len(playersDataList)
 
-        # Confirm button
-        self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm)
-        self.confirm_button.grid(row=1, column=0, columnspan=2, pady=10)
+        # Create input fields dynamically
+        for index, player in enumerate(playersDataList):
+            player_number = player["player_number"]
+
+            label = ctk.CTkLabel(self, text=f"Player {player_number} ID:")
+            label.grid(row=index, column=0, padx=10, pady=5)
+
+            entry = ctk.CTkEntry(self)
+            entry.grid(row=index, column=1, padx=10, pady=5)
+            entry.bind("<KeyRelease>", lambda event, i=index: self.on_key_release(event, i))
+            self.player_entries[index] = entry
+            self.player_ids[index] = ""  # Store IDs as they are entered
+
+        # Confirm button (initially disabled)
+        self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm, state="disabled")
+        self.confirm_button.grid(row=self.num_players, column=0, columnspan=2, pady=10)
+
+        # Autofocus the first entry
+        self.player_entries[0].focus_set()
+
+    def on_key_release(self, event, index):
+        """ Move focus to the next field when 5 characters are entered """
+        entry = self.player_entries[index]
+        player_id = entry.get().strip()
+
+        if len(player_id) == 5:
+            self.player_ids[index] = player_id  # Store the ID
+            next_index = index + 1
+
+            # Move focus to the next entry if available
+            if next_index < self.num_players:
+                self.player_entries[next_index].focus_set()
+            else:
+                self.confirm_button.configure(state="normal")  # Enable confirm button
+                self.on_confirm()  # Auto-submit when all inputs are filled
 
     def on_confirm(self):
-        # Collect data from entries
-        self.player_id = self.entry.get().strip()
-        print(f"Player id: {self.entry.get().strip()}")
+        """ Collect data and close dialog """
+        for i in range(self.num_players):
+            self.player_ids[i] = self.player_entries[i].get().strip()
 
-        self.destroy()  # Close dialog window
+        if all(len(pid) == 5 for pid in self.player_ids.values()):  # Ensure all are valid
+            self.destroy()
+        else:
+            messagebox.showwarning("Invalid Input", "Each Player ID must be 5 characters long.")
 
-    def get_player_id(self):
+    def get_player_ids(self):
         self.wait_window()  # Wait until the dialog is closed
-        return self.player_id
+        return list(self.player_ids.values())  # Return list of player IDs
+
+# class PlayerIDDialog(ctk.CTkToplevel):
+#     def __init__(self, parent, player_number):
+#         super().__init__(parent)
+#         self.title("Enter Player ID")
+#
+#         # Set dialog to be on top and modal
+#         self.transient(parent)
+#         self.grab_set()
+#
+#         # Create input fields for each player
+#         self.player_id = None
+#         self.label = ctk.CTkLabel(self, text=f"Player {player_number} ID:")
+#         self.label.grid(row=1 - 1, column=0, padx=10, pady=5)
+#         self.entry = ctk.CTkEntry(self)
+#         self.entry.grid(row=1 - 1, column=1, padx=10, pady=5)
+#         self.player_id = self.entry.get().strip()
+#
+#         # Confirm button
+#         self.confirm_button = ctk.CTkButton(self, text="Confirm", command=self.on_confirm)
+#         self.confirm_button.grid(row=1, column=0, columnspan=2, pady=10)
+#
+#     def on_confirm(self):
+#         # Collect data from entries
+#         self.player_id = self.entry.get().strip()
+#         print(f"Player id: {self.entry.get().strip()}")
+#
+#         self.destroy()  # Close dialog window
+#
+#     def get_player_id(self):
+#         self.wait_window()  # Wait until the dialog is closed
+#         return self.player_id
 
 
 if __name__ == "__main__":

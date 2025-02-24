@@ -52,6 +52,7 @@ class RemoteData:
                     print("Internet connection detected.")
                     data = self.local_data.fetch_all_data()
                     print(f"Fetched local data: {data}")
+                    all_synced = True  # Flag to check if all records synced successfully
                     for record in data:
                         player_data = {
                             "player_id": record[1],
@@ -66,13 +67,20 @@ class RemoteData:
                         }
                         try:
                             result = supabase_client.table("player_data_testing").insert(player_data).execute()
-                            print(f"Record synced to Supabase: {result.data}")
                             if result.data:
+                                print(f"Record synced to Supabase: {result.data}")
                                 self.local_data.synced_record(record[0])
                             else:
                                 print("Failed to sync data.")
+                                all_synced = False
                         except Exception as e:
                             print(f"Failed to sync record: {record}. Error: {e}")
+                            all_synced = False
+
+                            # **Trigger the Supabase function after successful sync**
+                            if all_synced:
+                                print("All records synced successfully. Running Supabase function...")
+                                self.calculate_player_stats("calculate_player_stats")
                 else:
                     print("No internet connection detected.")
 
@@ -93,9 +101,38 @@ class RemoteData:
                 print("Successfully sync with Supabase, saving locally with synced.")
                 print(f"Player model Synced: {player_model.to_sync_dict()}")
                 self.local_data.save_locally_synced(player_model)
+
+                # **Trigger Supabase function after successful player update**
+                print("Running Supabase function after player update...")
+                self.calculate_player_stats("calculate_player_stats")
+
             else:
                 print("Failed to sync with Supabase, saving locally.")
                 self.local_data.save_locally(player_model)
         else:
             print("No internet connection, saving locally.")
             self.local_data.save_locally(player_model)
+
+    def calculate_player_stats(self, function_name, params=None):
+        """
+            Executes a stored function in Supabase.
+
+            :param function_name: Name of the Supabase function to call.
+            :param params: Dictionary of parameters to pass to the function (if required).
+            :return: Function response or error.
+        """
+        try:
+            if params is None:
+                params = {}
+
+            response = supabase_client.rpc(function_name, params).execute()
+
+            if response.data:
+                print(f"Function '{function_name}' executed successfully: {response.data}")
+                return response.data
+            else:
+                print(f"Function '{function_name}' executed but returned no data.")
+                return None
+        except Exception as e:
+            print(f"Error executing function '{function_name}': {e}")
+            return None
